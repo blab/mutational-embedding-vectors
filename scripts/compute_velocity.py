@@ -46,8 +46,6 @@ def compute_velocity(tree_json, embeddings, output_file):
         node_name = node["name"]
         node_date = get_date(node)
 
-        # print(f"Visiting {node_name}, Date: {node_date}, Parent: {parent_name}")
-
         if parent_name and parent_name in embeddings and node_name in embeddings:
             # Calculate distance
             emb_parent = embeddings[parent_name]

@@ -31,6 +31,7 @@ def load_pathogen_data(pathogen_name, pathogen_config, results_dir):
     if metrics_path.exists():
         metrics_df = pd.read_csv(metrics_path, sep="\t")
         data["n_mutations"] = len(metrics_df)
+        # TODO: Create pathogen-level summaries for comparison
     else:
         print(f"Warning: No metrics found for {pathogen_name}")
         return None
