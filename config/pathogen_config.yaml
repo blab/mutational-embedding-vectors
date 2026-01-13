@@ -1,0 +1,104 @@
+# Pathogen Panel Configuration for Cross-Pathogen Analysis
+
+# adaptive_subs_per_year from: github.com/blab/adaptive-evolution
+pathogens:
+  # Influenza H3N2 - HA protein
+  influenza_h3n2_ha:
+    dataset: "https://nextstrain.org/flu/seasonal/h3n2/ha/2y"
+    gene: "HA1"
+    protein: "HA"
+    protein_coords: "HA1:1-987"  # HA1 is ~987bp (329 AA)
+    surface: true
+    adaptive_subs_per_year: 8.62  # Adaptive substitutions per year
+
+  # RSV-A - G protein
+  rsv_a_g:
+    dataset: "https://nextstrain.org/rsv/a/genome"
+    gene: "G"
+    protein: "G"
+    protein_coords: "G:1-918"  # G protein ~918bp (306 AA)
+    surface: true
+    adaptive_subs_per_year: 2.77  # Adaptive substitutions per year
+
+  # SARS-CoV-2 - Spike protein
+  sars_cov_2_spike:
+    dataset: "https://nextstrain.org/ncov/gisaid/global/all-time"
+    gene: "S"
+    protein: "Spike"
+    protein_coords: "S:1-1273"
+    surface: true
+    adaptive_subs_per_year: 0.40 # Needs updating
+
+  # Influenza B/Vic - HA protein
+  influenza_vic_ha:
+    dataset: "https://nextstrain.org/groups/blab/flu/seasonal/vic/ha/60y"
+    gene: "HA1"
+    protein: "HA"
+    protein_coords: "HA1:1-340"
+    surface: true
+    adaptive_subs_per_year: 2.16
+
+  # Measles - N protein
+  measles_n:
+    dataset: "https://nextstrain.org/measles/N450"
+    gene: "nuc"
+    protein: "N"
+    protein_coords: "N:1-450"
+    surface: false
+    adaptive_subs_per_year: -0.62  # Purifying selection
+
+  # Mumps - SH protein
+  mumps_sh:
+    dataset: "https://nextstrain.org/mumps/global"
+    gene: "SH"
+    protein: "SH"
+    protein_coords: "SH:1-316"
+    surface: true
+    adaptive_subs_per_year: -0.17  # Neutral/Purifying
+
+  norovirus_gii4_vp1:
+    dataset: https://nextstrain.org/norovirus/all/VP1
+    gene: VP1
+    protein_coords: "VP1:1-540"
+    surface: true
+    adaptive_subs_per_year: 4.12
+
+  influenza_vic_ha:
+    dataset: https://nextstrain.org/groups/blab/flu/seasonal/vic/ha/60y
+    gene: HA1
+    protein_coords: "HA1:1-340"
+    surface: true
+    adaptive_subs_per_year: 2.16
+
+  influenza_h1n1pdm_ha:
+    dataset: https://nextstrain.org/seasonal-flu/h1n1pdm/ha/2y
+    gene: HA1
+    protein_coords: "HA1:1-327"
+    surface: true
+    adaptive_subs_per_year: 5.38
+
+  rsv_b_g:
+    dataset: https://nextstrain.org/groups/blab/rsv/B
+    gene: G
+    protein_coords: "G:1-298"
+    surface: true
+    adaptive_subs_per_year: 2.35
+
+  oc43_a_s1:
+    dataset: https://nextstrain.org/groups/blab/oc43/A/S1/
+    gene: S1
+    protein_coords: "S1:1-607"
+    surface: true
+    adaptive_subs_per_year: 2.12
+
+  cov_229e_s1:
+    dataset: https://nextstrain.org/groups/blab/229e/S1
+    gene: S1
+    protein_coords: "S1:1-547"
+    surface: true
+    adaptive_subs_per_year: 2.94
+
+pipeline_settings:
+  embedding_model: "facebook/esm2_t6_8M_UR50D"
+  min_recurrence: 3
+  batch_size: 100
