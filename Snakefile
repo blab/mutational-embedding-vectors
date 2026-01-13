@@ -115,7 +115,7 @@ rule compute_evolutionary_velocity:
         velocity = "results/pathogen/{pathogen}/velocity.tsv"
     shell:
         """
-        python scripts/mutation_analysis/compute_velocity.py \
+        python scripts/compute_velocity.py \
             --tree {input.auspice:q} \
             --embeddings {input.embeddings:q} \
             --output {output.velocity:q}
