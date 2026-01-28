@@ -4,7 +4,7 @@ from transformer_lens import (
     HookedTransformerConfig
 )
 
-def get_hooked_esm_config(esm_cfg):
+def get_hooked_esm_config(esm_cfg, context_len):
     """
     Get hooked transformer config from ESM-2 config
     
@@ -18,7 +18,7 @@ def get_hooked_esm_config(esm_cfg):
         n_heads=esm_cfg.num_attention_heads,
         d_mlp=esm_cfg.intermediate_size,
         d_vocab=esm_cfg.vocab_size,
-        n_ctx=59,
+        n_ctx=context_len,
         act_fn=esm_cfg.hidden_act,
         normalization_type="LN",
         positional_embedding_type="rotary",
