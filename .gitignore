@@ -41,3 +41,5 @@ Thumbs.db
 
 **/.ipynb_checkpoints
 **/__pycache__
+**/pathogen_perplexities.json
+
