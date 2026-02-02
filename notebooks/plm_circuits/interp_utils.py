@@ -4,7 +4,7 @@ from transformer_lens import (
     HookedTransformerConfig
 )
 
-def get_hooked_esm_config(esm_cfg, context_len):
+def get_hooked_esm_config(esm_cfg, context_len, **kwargs):
     """
     Get hooked transformer config from ESM-2 config
     
@@ -26,7 +26,8 @@ def get_hooked_esm_config(esm_cfg, context_len):
         post_embedding_ln=False,
         tokenizer_name=esm_cfg.model_name,
         d_vocab_out=esm_cfg.hidden_size,
-        eps=esm_cfg.layer_norm_eps
+        eps=esm_cfg.layer_norm_eps,
+        **kwargs
     )
     return hooked_esm_config
 
