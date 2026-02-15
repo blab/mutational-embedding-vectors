@@ -29,6 +29,61 @@ pathogens:
     surface: true
     adaptive_subs_per_year: 0.40 # Needs updating
 
+
+  # SARS-CoV-2 - Spike protein AFRICA
+  sars_cov_2_spike_africa:
+    dataset: "https://nextstrain.org/ncov/open/africa/all-time"
+    gene: "S"
+    protein: "Spike"
+    protein_coords: "S:1-1273"
+    surface: true
+    adaptive_subs_per_year: 0.40 # Needs updating
+
+  # SARS-CoV-2 - Spike protein ASIA
+  sars_cov_2_spike_asia:
+    dataset: "https://nextstrain.org/ncov/open/asia/all-time"
+    gene: "S"
+    protein: "Spike"
+    protein_coords: "S:1-1273"
+    surface: true
+    adaptive_subs_per_year: 0.40 # Needs updating
+
+  # SARS-CoV-2 - Spike protein EUROPE
+  sars_cov_2_spike_europe:
+    dataset: "https://nextstrain.org/ncov/open/europe/all-time"
+    gene: "S"
+    protein: "Spike"
+    protein_coords: "S:1-1273"
+    surface: true
+    adaptive_subs_per_year: 0.40 # Needs updating
+
+  # SARS-CoV-2 - Spike protein NORTH AMERICA
+  sars_cov_2_spike_north_america:
+    dataset: "https://nextstrain.org/ncov/open/north-america/all-time"
+    gene: "S"
+    protein: "Spike"
+    protein_coords: "S:1-1273"
+    surface: true
+    adaptive_subs_per_year: 0.40 # Needs updating
+
+  # SARS-CoV-2 - Spike protein OCEANIA
+  sars_cov_2_spike_oceania:
+    dataset: "https://nextstrain.org/ncov/open/oceania/all-time"
+    gene: "S"
+    protein: "Spike"
+    protein_coords: "S:1-1273"
+    surface: true
+    adaptive_subs_per_year: 0.40 # Needs updating
+
+  # SARS-CoV-2 - Spike protein SOUTH AMERICA
+  sars_cov_2_spike_south_america:
+    dataset: "https://nextstrain.org/ncov/open/south-america/all-time"
+    gene: "S"
+    protein: "Spike"
+    protein_coords: "S:1-1273"
+    surface: true
+    adaptive_subs_per_year: 0.40 # Needs updating
+
   # Influenza B/Vic - HA protein
   influenza_vic_ha:
     dataset: "https://nextstrain.org/groups/blab/flu/seasonal/vic/ha/60y"
