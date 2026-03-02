@@ -14,6 +14,7 @@ from typing import (
 from dataclasses import dataclass
 from jaxtyping import Bool, Float, Int
 import einops
+from tqdm import tqdm
 
 THETA_INIT = 0.1
 device="cuda"
