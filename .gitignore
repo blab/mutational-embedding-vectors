@@ -20,6 +20,7 @@ environment*
 
 # Compiled source #
 ###################
+*.bin
 *.com
 *.class
 *.dll
