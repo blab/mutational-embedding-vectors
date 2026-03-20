@@ -28,6 +28,7 @@ environment*
 *.o
 *.so
 *.pkl
+*.pt
 
 # OS generated files #
 ######################
