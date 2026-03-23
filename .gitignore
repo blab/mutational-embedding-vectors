@@ -20,12 +20,15 @@ environment*
 
 # Compiled source #
 ###################
+*.bin
 *.com
 *.class
 *.dll
 *.exe
 *.o
 *.so
+*.pkl
+*.pt
 
 # OS generated files #
 ######################
@@ -38,3 +41,8 @@ Icon?
 ehthumbs.db
 Thumbs.db
 *~
+
+**/.ipynb_checkpoints
+**/__pycache__
+**/pathogen_perplexities.json
+

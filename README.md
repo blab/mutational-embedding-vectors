@@ -1,3 +1,5 @@
+# The (current) purpose of this branch is for exploratory analysis
+
 # Cross-Pathogen PLM Embedding Analysis
 
 This project uses protein language models (PLMs) to analyze evolutionary dynamics across multiple viral pathogens. The pipeline computes mutation-level embeddings, evolutionary velocity, and comparative metrics to understand patterns of viral evolution across pathogens with varying rates of adaptation.

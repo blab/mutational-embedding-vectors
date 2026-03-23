@@ -7,7 +7,8 @@ import pandas as pd
 import torch
 from Bio import SeqIO
 from tqdm import tqdm
-from transformers import AutoTokenizer, EsmModel
+from transformers import AutoTokenizer, EsmModel, EsmConfig, EsmForMaskedLM
+from huggingface_hub import hf_hub_download
 
 if torch.cuda.is_available():
     DEVICE = torch.device("cuda")
@@ -44,7 +45,8 @@ def get_protein_sequence(dna_sequence, protein_coords):
 
         if not is_dna:
             # Already amino acid sequence - return as is
-            return dna_sequence.replace("-", "").replace("*", "")
+            # return dna_sequence.replace("-", "").replace("*", "") for now, don't remove gaps
+            return dna_sequence.replace("*", "")
 
         # DNA sequence - extract region and translate
         _, coords = protein_coords.split(":")
@@ -54,7 +56,7 @@ def get_protein_sequence(dna_sequence, protein_coords):
         dna_segment = dna_sequence[start - 1 : end]
 
         # Remove gaps for translation
-        dna_clean = dna_segment.replace("-", "")
+        # dna_clean = dna_segment.replace("-", "") for now, don't remove gaps
 
         from Bio.Seq import Seq
 
@@ -68,11 +70,28 @@ def get_protein_sequence(dna_sequence, protein_coords):
 
 
 def compute_embeddings(
-    sequences, output_file, protein_coords, model_name="facebook/esm2_t6_8M_UR50D"
+    sequences, output_file, protein_coords, model_name="facebook/esm2_t33_650M_UR50D"
 ):
     print(f"Loading ESM model: {model_name}")
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = EsmModel.from_pretrained(model_name).to(DEVICE)
+    esm_config = EsmConfig.from_pretrained(model_config.da_model_name)
+    esm_config.token_dropout = False
+    esm_config.model_name = model_name
+
+    REPO_ID = esm_config.model_name
+    special_tokens_map_file = "special_tokens_map.json"
+    tokenizer_config = {}
+    tokenizer_config["vocab_file"] = hf_hub_download(repo_id=REPO_ID, filename="vocab.txt")
+    tokenizer_config["model_max_length"] = CONTEXT_LEN
+    with open(hf_hub_download(repo_id=REPO_ID, filename=special_tokens_map_file), "r") as f:
+        tokenizer_config = {**tokenizer_config, **(json.load(f))}
+
+    tokenizer = EsmTokenizer(**tokenizer_config)
+    esm_cov_state_dict_path = "../notebooks/plm_circuits/covfit_stuff/model_ESM2_coronaviridae/pytorch_model.bin"
+    model = EsmForMaskedLM(esm_config).to(device)
+    esm_disp_state_dict = torch.load(esm_cov_state_dict_path)
+    del esm_disp_state_dict["esm.embeddings.position_embeddings.weight"]
+    del esm_disp_state_dict["esm.embeddings.position_ids"]
+    model.load_state_dict(esm_disp_state_dict)
     model.eval()
 
     embeddings = {}
