@@ -1,3 +1,6 @@
 [submodule "snmf-mlp-decomposition"]
 	path = snmf-mlp-decomposition
 	url = https://github.com/ordavid-s/snmf-mlp-decomposition.git
+[submodule "feature-circuits"]
+	path = feature-circuits
+	url = https://github.com/saprmarks/feature-circuits.git
