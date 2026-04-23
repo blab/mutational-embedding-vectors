@@ -29,6 +29,7 @@ environment*
 *.so
 *.pkl
 *.pt
+*.yaml
 
 # OS generated files #
 ######################

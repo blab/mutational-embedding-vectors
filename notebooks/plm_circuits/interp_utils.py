@@ -157,4 +157,80 @@ def get_hooked_state_dict(hf_esm_state_dict, cfg, device="cuda"):
         new_state_dict["ln_final.b"] = hf_esm_state_dict["esm.encoder.emb_layer_norm_after.bias"]
 
     return new_state_dict
+
+def get_fairesm_state_dict(hf_esm_state_dict, cfg, device="cuda"):
+    """
+    hugging face ESM-2 state dict -> hooked transformer state dict
+
+    hf_esm_state_dict: state dict of ESM model (from hugging face)
+    cfg: huggingface ESM_CONFIG
+    device: "cpu" or "cuda"
+    """
+    old_state_dict_keys = hf_esm_state_dict.keys()
+    new_state_dict = {}
+
+    old_to_new_weights = {
+        "attention.self.query.weight":"self_attn.q_proj.weight",
+        "attention.self.key.weight":"self_attn.k_proj.weight",
+        "attention.self.value.weight":"self_attn.v_proj.weight",
+        "attention.output.dense.weight":"self_attn.out_proj.weight", 
+    }
+    old_to_new_bias = {
+        "attention.self.query.bias":"self_attn.q_proj.bias",
+        "attention.self.key.bias":"self_attn.k_proj.bias",
+        "attention.self.value.bias":"self_attn.v_proj.bias",
+        "attention.output.dense.bias":"self_attn.out_proj.bias"
+    }
+    old_to_new_mlp = {
+        "intermediate.dense.weight":"fc1.weight",
+        "intermediate.dense.bias":"fc1.bias",
+        "output.dense.weight":"fc2.weight",
+        "output.dense.bias":"fc2.bias",
+    }
+    old_to_new_ln = {
+        "attention.LayerNorm.weight":"self_attn_layer_norm.weight",
+        "attention.LayerNorm.bias":"self_attn_layer_norm.bias",
+        "LayerNorm.weight":"final_layer_norm.weight",
+        "LayerNorm.bias":"final_layer_norm.bias"
+    }
+
+    # embedding matrix
+    new_state_dict["embed_tokens.weight"] = hf_esm_state_dict["esm.embeddings.word_embeddings.weight"]
+    
+    
+    for l in range(cfg.num_hidden_layers):
+        l_keys = [x for x in old_state_dict_keys if f".{l}." in x]
+        old_prefix = f"esm.encoder.layer.{l}"
+        new_prefix = f"layers.{l}"
+
+        # rotary embeddings
+        new_state_dict[f"{new_prefix}.self_attn.rot_emb.inv_freq"] = hf_esm_state_dict[f"esm.encoder.layer.{l}.attention.self.rotary_embeddings.inv_freq"]
+        
+        # weights
+        for w in old_to_new_weights.keys():
+            # weights are arranged [out_features, in_features] = [n_head * d_head, d_model]
+            new_weight_name = old_to_new_weights[w]
+            new_state_dict[f"{new_prefix}.{new_weight_name}"] = hf_esm_state_dict[f"{old_prefix}.{w}"]
+            
+        #biases
+        for b in old_to_new_bias.keys():
+            new_bias_name = old_to_new_bias[b]
+            new_state_dict[f"{new_prefix}.{new_bias_name}"] = hf_esm_state_dict[f"{old_prefix}.{b}"]
+            
+        # mlp 
+        for m in old_to_new_mlp.keys():
+            # mlp are arranged [out_features, in_features] = [d_mlp, d_model]
+            new_mlp_name = old_to_new_mlp[m]
+            new_state_dict[f"{new_prefix}.{new_mlp_name}"] = hf_esm_state_dict[f"{old_prefix}.{m}"]
+
+        # layernorms
+        for ln in old_to_new_ln.keys():
+            new_ln_name = old_to_new_ln[ln]
+            new_state_dict[f"{new_prefix}.{new_ln_name}"] = hf_esm_state_dict[f"{old_prefix}.{ln}"]
+
+        # Final LayerNorm
+        new_state_dict["emb_layer_norm_after.weight"] = hf_esm_state_dict["esm.encoder.emb_layer_norm_after.weight"]
+        new_state_dict["emb_layer_norm_after.bias"] = hf_esm_state_dict["esm.encoder.emb_layer_norm_after.bias"]
+
+    return new_state_dict
     
