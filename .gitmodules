@@ -1,3 +1,6 @@
 [submodule "ProtoMech"]
 	path = ProtoMech
 	url = https://github.com/amirgroup-codes/ProtoMech.git
+[submodule "transcoder_circuits"]
+	path = transcoder_circuits
+	url = https://github.com/jacobdunefsky/transcoder_circuits.git
