@@ -183,6 +183,9 @@ for (k,v) in args.__dict__.items():
     print("%-30s:\t\t%-30s"%(str(k), str(v)))
 
 model = PLTLightningModule(args).to(device)
+# making sure tokenizing is same as mine
+model.tokenize = lambda x: tokenizer(x, return_tensors="pt", return_special_tokens_mask=True, truncation=True, padding="max_length", max_length=CONTEXT_LEN).input_ids.to(device)
+print(model.tokenize)
 print("instatiated model!")
 
 run_name = f"PLT_L{args.num_layers}_H{args.d_hidden}"
