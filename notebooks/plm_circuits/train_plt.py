@@ -169,13 +169,13 @@ parser.add_argument("--wandb-project", type=str, default="ESM-CLT")
 
 plt_data_path = "../../data"
 arg_dict = {
-    "--data-dir": os.path.join(plt_data_path, "pls_data.parquet"),
+    "--data-dir": os.path.join(plt_data_path, "pls_data_no_synthetic.parquet"),
     "--esm2-weight":"./covfit_stuff/models/covfit_esm_statedict.pt",
     "--output-dir": "./covfit_stuff/PLT_test",
     "--num-layers": esm_config.num_hidden_layers,
     "--d-model": esm_config.hidden_size, # d_model of ESM
-    "--d-hidden": 10 * esm_config.hidden_size, # latent dim of PLT
-    "--batch-size": 15, 
+    "--d-hidden": 20 * esm_config.hidden_size, # latent dim of PLT
+    "--batch-size": 10, 
 }
 args = parser.parse_args([str(x) for (k,v) in arg_dict.items() for x in (k,v)])
 print("Cross-layer transcoder training params:")
