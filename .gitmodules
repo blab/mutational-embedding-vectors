@@ -1,3 +1,7 @@
+# [submodule "ProtoMech"]
+# 	path = ProtoMech
+# 	url = https://github.com/amirgroup-codes/ProtoMech.git
+
 [submodule "ProtoMech"]
 	path = ProtoMech
-	url = https://github.com/amirgroup-codes/ProtoMech.git
+	url = https://github.com/RoseyGreenBlue/ProtoMech.git
