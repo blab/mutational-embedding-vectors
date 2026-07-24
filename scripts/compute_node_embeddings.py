@@ -73,7 +73,7 @@ def compute_embeddings(
     sequences, output_file, protein_coords, model_name="facebook/esm2_t33_650M_UR50D"
 ):
     print(f"Loading ESM model: {model_name}")
-    esm_config = EsmConfig.from_pretrained(model_config.da_model_name)
+    esm_config = EsmConfig.from_pretrained(model_name)
     esm_config.token_dropout = False
     esm_config.model_name = model_name
 
