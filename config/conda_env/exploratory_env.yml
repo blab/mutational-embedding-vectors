@@ -136,6 +136,7 @@ dependencies:
       - parso==0.8.5
       - pexpect==4.9.0
       - platformdirs==4.5.1
+      - plotly==6.9.0
       - prometheus-client==0.24.0
       - prompt-toolkit==3.0.52
       - propcache==0.4.1

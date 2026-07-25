@@ -1,8 +1,33 @@
 import torch
+from torch import Tensor, nn
+import sys
 import einops
+from jaxtyping import Bool, Float, Int
 from transformer_lens import (
-    HookedTransformerConfig
+    HookedTransformer,
+    HookedTransformerConfig,
+    FactoredMatrix,
+    ActivationCache,
 )
+from transformers import (
+    EsmForMaskedLM, 
+    EsmConfig,
+    PretrainedConfig, 
+    EsmTokenizer, 
+    DataCollatorForLanguageModeling, 
+    Trainer
+)
+from transformer_lens.hook_points import (
+    HookedRootModule,
+    HookPoint,
+)
+from typing import List, Union, Optional, Callable, Sequence
+sys.path.append("../../config")
+import experiment_config
+from covfit_stuff.esm_regression import load_model_for_inference, get_model_predictions, EsmForRegression
+from peft import LoraConfig, get_peft_model
+
+device = experiment_config.device
 
 def get_hooked_esm_config(esm_cfg, context_len, **kwargs):
     """
@@ -233,4 +258,179 @@ def get_fairesm_state_dict(hf_esm_state_dict, cfg, device="cuda"):
         new_state_dict["emb_layer_norm_after.bias"] = hf_esm_state_dict["esm.encoder.emb_layer_norm_after.bias"]
 
     return new_state_dict
+
+# add padding mask to model
+def add_perma_hooks_to_mask_pad_tokens(
+    model: HookedTransformer, pad_token: int
+) -> HookedTransformer:
+    # Hook which operates on the tokens, and stores a mask where tokens equal [pad]
+    def cache_padding_tokens_mask(tokens: Float[Tensor, "batch seq"], hook: HookPoint) -> None:
+        hook.ctx["padding_tokens_mask"] = einops.rearrange(tokens == pad_token, "b sK -> b 1 1 sK")
+
+    # Apply masking, by referencing the mask stored in the `hook_tokens` hook context
+    def apply_padding_tokens_mask(
+        attn_scores: Float[Tensor, "batch head seq_Q seq_K"],
+        hook: HookPoint,
+    ) -> None:
+        attn_scores.masked_fill_(model.hook_dict["hook_tokens"].ctx["padding_tokens_mask"], -1e5)
+        if hook.layer() == model.cfg.n_layers - 1:
+            del model.hook_dict["hook_tokens"].ctx["padding_tokens_mask"]
+
+    # Add these hooks as permanent hooks (i.e. they aren't removed after functions like run_with_hooks)
+    for name, hook in model.hook_dict.items():
+        if name == "hook_tokens":
+            hook.add_perma_hook(cache_padding_tokens_mask)
+        elif name.endswith("attn_scores"):
+            hook.add_perma_hook(apply_padding_tokens_mask)
+
+    return model
+
+def get_model(
+    TOK_DIR = "./covfit_stuff/Tokenizer",
+    CONF_DIR = "./covfit_stuff/Config",
+    TASK_IDS_FILE = "./covfit_stuff/task_id_dict.pt",
+    FOLD_ID = 0,
+    N_TARGETS = 1565,
+    MODEL_PATH = f"./covfit_stuff/models/covfit_model_20241007_0.ckpt",
+    device=device
+):
+    esm_config = EsmConfig.from_pretrained(CONF_DIR)
+    model = EsmForRegression(esm_config, N_TARGETS).to(device)
+
+    lora_config = LoraConfig(
+        task_type="SEQ_CLS",
+        r=8,
+        lora_alpha=16,
+        target_modules=["key", "query", "value","dense"],
+        lora_dropout=0.05,
+        bias="lora_only",
+        modules_to_save=["regressor"]
+    )
+    esm_fine_tuned = get_peft_model(model, lora_config)
+    state_dict = torch.load(MODEL_PATH, map_location=device)
+    
+    # keys_to_remove = []
+    # for key in state_dict.keys():
+    #     if 'contact_head' in key:
+    #         keys_to_remove.append(key)
+    
+    # for key in keys_to_remove:
+    #     del state_dict[key]
+
+    wrong_keys = [key for key in state_dict.keys() if key not in esm_fine_tuned.state_dict().keys()]
+    key_list = list(state_dict.keys())
+    for key in key_list:
+        if key in wrong_keys:
+            correct_key = key.rsplit('.',1)[0]+'.base_layer.'+key.rsplit('.',1)[1]
+            state_dict[correct_key] = state_dict.pop(key)
+
+    del state_dict["base_model.model.esm.embeddings.position_embeddings.base_layer.weight"]
+    
+    esm_fine_tuned.load_state_dict(state_dict)
+    esm_fine_tuned = esm_fine_tuned.merge_and_unload()
+    esm_fine_tuned.eval()
+    esm_fine_tuned.esm.embeddings.token_dropout = False
+
+    return esm_fine_tuned
+
+
+def patch_head_input(
+    orig_activation: Float[Tensor, "batch pos head_idx d_head"],
+    hook: HookPoint,
+    patched_cache: ActivationCache,
+    head_list: list[tuple[int, int]],
+) -> Float[Tensor, "batch pos head_idx d_head"]:
+    """
+    Function which can patch any combination of heads in layers,
+    according to the heads in head_list.
+    """
+    heads_to_patch = [head for layer, head in head_list if layer == hook.layer()]
+    orig_activation[:, :, heads_to_patch] = patched_cache[hook.name][:, :, heads_to_patch]
+    return orig_activation
+
+def patch_or_freeze_head_vectors(
+    orig_head_vector: Float[Tensor, "batch pos head_index d_head"],
+    hook: HookPoint,
+    new_cache: ActivationCache,
+    orig_cache: ActivationCache,
+    head_to_patch: tuple[int, int], # [layer, head]
+) -> Float[Tensor, "batch pos head_index d_head"]:
+    """
+    This helps implement step 2 of path patching. We freeze all head outputs (i.e. set them to their
+    values in orig_cache), except for head_to_patch (if it's in this layer) which we patch with the
+    value from new_cache.
+
+    head_to_patch: tuple of (layer, head)
+    """
+    # Setting using ..., otherwise changing orig_head_vector will edit cache value too
+    orig_head_vector[...] = orig_cache[hook.name][...]
+    if head_to_patch[0] == hook.layer():
+        orig_head_vector[:, :, head_to_patch[1]] = new_cache[hook.name][:, :, head_to_patch[1]]
+    return orig_head_vector
+
+def get_path_patch_head_to_heads(
+    model: HookedTransformer,
+    receiver_heads: list[tuple[int, int]], # (layer,head)
+    receiver_input: str,
+    new_dataset: Float[Tensor, "batch pos"],
+    orig_dataset: Float[Tensor, "batch pos"],
+    patching_metric: Callable,
+    new_cache: ActivationCache | None,
+    orig_cache: ActivationCache | None,
+) -> Float[Tensor, "layer head"]:
+    """
+    Performs path patching (see algorithm in appendix B of IOI paper), with:
+
+        sender head = (each head, looped through, one at a time)
+        receiver node = input to a later head (or set of heads)
+
+    The receiver node is specified by receiver_heads and receiver_input, for example if
+    receiver_input = "v" and receiver_heads = [(8, 6), (8, 10), (7, 9), (7, 3)], we're doing path
+    patching from each head to the value inputs of the S-inhibition heads.
+
+    Returns:
+        tensor of metric values for every possible sender head
+    """
+
+    num_layers = model.cfg.n_layers
+    num_heads = model.cfg.n_heads
+
+    results = torch.zeros((num_layers, num_heads)).to(model.cfg.device)
+    z_name_filter = lambda name: name.endswith("z")
+
+    receiver_layers = set([x[0] for x in receiver_heads])
+    receiver_hook_names = [utils.get_act_name(receiver_input, layer) for layer in receiver_layers]
+    receiver_hook_names_filter = lambda name: name in receiver_hook_names
+
+    # step 1, get cached runs
+    if new_cache == None:
+        _, new_cache = model.run_with_cache(new_dataset, names_filter=z_name_filter)
+        torch.cuda.empty_cache()
+
+    if orig_cache == None:
+        _, orig_cache = model.run_with_cache(orig_dataset, names_filter=z_name_filter)
+        torch.cuda.empty_cache()
+
+    with tqdm(total = num_layers * num_heads) as fancy_progress_bar:
+        for layer in range(num_layers):
+            for head in range(num_heads):
+                model.reset_hooks()
+    
+                # step 2, run original dataset with non-direct paths frozen
+                step2_hook_f = functools.partial(patch_or_freeze_head_vectors, new_cache=new_cache, orig_cache=orig_cache, head_to_patch=(layer, head))
+                model.add_hook(z_name_filter, step2_hook_f, dir="fwd")
+                _, patching_cache = model.run_with_cache(orig_dataset, names_filter=receiver_hook_names_filter)
+                torch.cuda.empty_cache()
+    
+                # step 3, compute final logits
+                model.reset_hooks()
+                step3_hook_f = functools.partial(patch_head_input, patched_cache=patching_cache, head_list=receiver_heads)
+                path_patched_logits_esm = model.run_with_hooks(orig_dataset, fwd_hooks=[(receiver_hook_names_filter, step3_hook_f)], return_type="logits")
+                path_patched_logits = get_logit_hooked(path_patched_logits_esm, logit_id)
+                torch.cuda.empty_cache()
+    
+                results[layer, head] = patching_metric(path_patched_logits)
+                fancy_progress_bar.update()
+    model.reset_hooks()
+    return results
     
