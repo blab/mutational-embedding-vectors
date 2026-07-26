@@ -9,7 +9,7 @@ printf '\n%s\n' 'eval "$("/home/ubuntu/.nextstrain/cli-standalone/nextstrain" in
 eval "$("/home/ubuntu/.nextstrain/cli-standalone/nextstrain" init-shell bash)"
 
 echo "Downloading data"
-snakemake --cores all data/pathogen/{"sars_cov_2_spike","sars_cov_2_spike_africa","sars_cov_2_spike_europe","sars_cov_2_spike_north_america","sars_cov_2_spike_oceania","sars_cov_2_spike_south_america"}/branches.tsv
+snakemake --cores all data/pathogen/{"sars_cov_2_spike","sars_cov_2_spike_asia","sars_cov_2_spike_africa","sars_cov_2_spike_europe","sars_cov_2_spike_north_america","sars_cov_2_spike_oceania","sars_cov_2_spike_south_america"}/branches.tsv
 
 echo "downloading covfit"
 echo "models will be located in ${covfit_stuff_path}"
