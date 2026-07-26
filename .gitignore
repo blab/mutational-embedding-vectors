@@ -42,6 +42,7 @@ Icon?
 ehthumbs.db
 Thumbs.db
 *~
+*.tar.gz
 
 **/.ipynb_checkpoints
 **/__pycache__
