@@ -360,6 +360,7 @@ def get_act_patch_attn_head_out_all_pos(
     clean_tokens: Float[Tensor, "batch pos"],
     corrupted_cache: ActivationCache,
     patching_metric: Callable,
+    get_logit_hooked: Callable
 ) -> Float[Tensor, "layer head"]:
     """
     Returns an array of results of patching at all positions for each head in each layer, using the
@@ -411,6 +412,7 @@ def get_act_patch_mlp_all_pos(
     clean_tokens: Float[Tensor, "batch pos"],
     corrupted_cache: ActivationCache,
     patching_metric: Callable,
+    get_logit_hooked: Callable
 ) -> Float[Tensor, "layer 1"]:
     """
     Returns an array of results of patching at all positions for each head in each layer, using the
