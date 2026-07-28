@@ -1,4 +1,4 @@
-export covfit_stuff_path="./notebooks/plm_circuits/covfit_stuff"
+export covfit_stuff_path="./notebooks/covfit_stuff"
 
 echo "installying ipykernel (make sure you're already in exploratory_env conda environment!!)"
 conda install ipykernel
