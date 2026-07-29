@@ -4,6 +4,9 @@ echo "installying ipykernel (make sure you're already in exploratory_env conda e
 conda install ipykernel
 ipython kernel install --user --name="exploratory_env"
 
+echo "creating figure directory (if not already created)"
+mkdir figures
+
 echo "installing nextstrain"
 curl -fsSL --proto '=https' https://nextstrain.org/cli/installer/linux | bash
 printf '\n%s\n' 'eval "$("/home/ubuntu/.nextstrain/cli-standalone/nextstrain" init-shell bash)"' >> ~/.bashrc
