@@ -15,6 +15,8 @@ eval "$("/home/ubuntu/.nextstrain/cli-standalone/nextstrain" init-shell bash)"
 echo "installing data"
 echo "Downloading covid data"
 snakemake --cores all data/pathogen/{"sars_cov_2_spike","sars_cov_2_spike_asia","sars_cov_2_spike_africa","sars_cov_2_spike_europe","sars_cov_2_spike_north_america","sars_cov_2_spike_oceania","sars_cov_2_spike_south_america"}/branches.tsv
+nextstrain remote download https://nextstrain.org/nextclade/sars-cov-2 "./data/steering/steering_data.json"
+python ./scripts/alignment.py --json "./data/steering/steering_data.json" --output "./data/steering/lineages.fasta" --gene S --tips-only
 
 echo "installing data for OOD steering"
 mkdir "./data/steering"

@@ -1,18 +1,21 @@
-# The (current) purpose of this branch is for exploratory analysis
+# Mechanistically interpreting CovFit
 
-# Cross-Pathogen PLM Embedding Analysis
-
-This project uses protein language models (PLMs) to analyze evolutionary dynamics across multiple viral pathogens. The pipeline computes mutation-level embeddings, evolutionary velocity, and comparative metrics to understand patterns of viral evolution across pathogens with varying rates of adaptation.
-
-Adaptive substitution rates are from [Kistler & Bedford 2023](https://github.com/blab/adaptive-evolution): "An atlas of continuous adaptive evolution in endemic human viruses." Cell Host Microbe 31: 1-12.
+This project uses mechanistic interpretability methods to analyze CovFit's behavior on different mutations
 
 # Installation
+### Important files and where they come from:
+[task_id_dict.pt](https://huggingface.co/TheSatoLab-UTokyo/CoVFit/tree/main) (Go to "Files and Versions" > task_id_dict.pt)
 
-Install dependencies with pip including PyTorch and transformers:
+[CovFit model (trained to 2024)](https://zenodo.org/records/14438178)
 
-```
-pip install -r requirements.txt
-```
+### Create environment using conda
+```conda create --file config/conda_env/exploratory_env.yml```
+
+```conda activate exploratory_env```
+
+### Download data and CovFit models
+```bash setup.sh```
+
 
 # Workflow
 
@@ -90,7 +93,7 @@ pipeline_settings:
 # Output Structure
 
 ```
-results/cross_pathogen/
+data/results/cross_pathogen/
 ├── {pathogen}/
 │   ├── node_embeddings.pkl       # PLM embeddings
 │   ├── mutation_vectors.tsv      # Embedding space changes per mutation
