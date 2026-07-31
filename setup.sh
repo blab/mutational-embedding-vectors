@@ -13,6 +13,7 @@ printf '\n%s\n' 'eval "$("/home/ubuntu/.nextstrain/cli-standalone/nextstrain" in
 eval "$("/home/ubuntu/.nextstrain/cli-standalone/nextstrain" init-shell bash)"
 
 echo "installing data"
+wget -O ./notebooks/covfit_stuff/task_id_dict.pt "https://huggingface.co/TheSatoLab-UTokyo/CoVFit/resolve/main/task_id_dict.pt"
 echo "Downloading covid data"
 snakemake --cores all data/pathogen/{"sars_cov_2_spike","sars_cov_2_spike_asia","sars_cov_2_spike_africa","sars_cov_2_spike_europe","sars_cov_2_spike_north_america","sars_cov_2_spike_oceania","sars_cov_2_spike_south_america"}/branches.tsv
 nextstrain remote download https://nextstrain.org/nextclade/sars-cov-2 "./data/steering/steering_data.json"
