@@ -16,11 +16,11 @@ echo "installing data"
 wget -O ./notebooks/covfit_stuff/task_id_dict.pt "https://huggingface.co/TheSatoLab-UTokyo/CoVFit/resolve/main/task_id_dict.pt"
 echo "Downloading covid data"
 snakemake --cores all data/pathogen/{"sars_cov_2_spike","sars_cov_2_spike_asia","sars_cov_2_spike_africa","sars_cov_2_spike_europe","sars_cov_2_spike_north_america","sars_cov_2_spike_oceania","sars_cov_2_spike_south_america"}/branches.tsv
-nextstrain remote download https://nextstrain.org/nextclade/sars-cov-2 "./data/steering/steering_data.json"
-python ./scripts/alignment.py --json "./data/steering/steering_data.json" --output "./data/steering/lineages.fasta" --gene S --tips-only
 
 echo "installing data for OOD steering"
 mkdir "./data/steering"
+nextstrain remote download https://nextstrain.org/nextclade/sars-cov-2 "./data/steering/steering_data.json"
+python ./scripts/alignment.py --json "./data/steering/steering_data.json" --output "./data/steering/lineages.fasta" --gene S --tips-only
 wget -O "./data/steering/parent_child_fitness.tsv" "https://drive.google.com/uc?export=download&id=1vvYmwZC2Sn6Ivi_y9G65i3wB5d4V8nUs"
 
 echo "downloading covfit"
