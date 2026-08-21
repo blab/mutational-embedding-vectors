@@ -34,5 +34,5 @@ rm -rf ${covfit_stuff_path}/CoVFit_CLI
 
 echo "downloading ESM2_coronaviridae"
 wget  -O "${covfit_stuff_path}/models/ESM2_coronaviridae.tar.gz" "https://zenodo.org/records/10910360/files/model_ESM2_coronaviridae.tar.gz"
-tar -xf "${covfit_stuff_path}/models/ESM2_coronaviridae.tar.gz" -C "${covfit_stuff_path}"
+tar -xf "${covfit_stuff_path}/models/ESM2_coronaviridae.tar.gz" -C "${covfit_stuff_path}/models/"
 rm "${covfit_stuff_path}/models/ESM2_coronaviridae.tar.gz"
