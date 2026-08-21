@@ -2,6 +2,28 @@
 
 This project uses mechanistic interpretability methods to analyze CovFit's behavior on different mutations
 
+We analyzed the following mutations:
+
+G339H - [shikha et al.](https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2023.1209513/full)
+
+R346T - [groenheit et al.](<https://www.thelancet.com/journals/lanepe/article/PIIS2666-7762(22)00260-5/fulltext>)
+
+K417N - [barton et al.](https://elifesciences.org/articles/70658)
+
+V445P - [wang et al.](https://pubmed.ncbi.nlm.nih.gov/36580913/)
+
+L455F - [focosi et al.](https://pmc.ncbi.nlm.nih.gov/articles/PMC10818967/)
+
+F456L - [focosi et al.](https://pmc.ncbi.nlm.nih.gov/articles/PMC10818967/)
+
+E484A - [liu et al.](<https://www.cell.com/cell/fulltext/S1931-3128(21)00044-5>)
+
+S486P - [tamura et al.](https://www.nature.com/articles/s41467-024-45274-3)
+
+Q493R - [focosi et al.](https://pmc.ncbi.nlm.nih.gov/articles/PMC8462334/)
+
+P681H - [lista et al.](https://journals.asm.org/doi/full/10.1128/jvi.01250-22)
+
 # Installation
 ### Important files and where they come from:
 [task_id_dict.pt](https://huggingface.co/TheSatoLab-UTokyo/CoVFit/tree/main) (Go to "Files and Versions" > task_id_dict.pt)
