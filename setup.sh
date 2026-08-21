@@ -29,7 +29,7 @@ mkdir "${covfit_stuff_path}/models"
 wget  -O "${covfit_stuff_path}/covfit_cli_20241007.tar.gz" "https://zenodo.org/records/14438178/files/covfit_cli_20241007.tar.gz"
 tar -xf ${covfit_stuff_path}/covfit_cli_20241007.tar.gz -C ${covfit_stuff_path}
 rm ${covfit_stuff_path}/covfit_cli_20241007.tar.gz
-cp -r "${covfit_stuff_path}/CoVFit_CLI/_internal/files/models/*" "${covfit_stuff_path}/models"
+cp -r "${covfit_stuff_path}/CoVFit_CLI/_internal/files/models/*" "${covfit_stuff_path}/models/"
 rm -rf ${covfit_stuff_path}/CoVFit_CLI
 
 echo "downloading ESM2_coronaviridae"
