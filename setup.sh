@@ -24,11 +24,15 @@ python ./scripts/alignment.py --json "./data/steering/steering_data.json" --outp
 wget -O "./data/steering/parent_child_fitness.tsv" "https://drive.google.com/uc?export=download&id=1vvYmwZC2Sn6Ivi_y9G65i3wB5d4V8nUs"
 
 echo "downloading covfit"
-echo "models will be located in ${covfit_stuff_path}"
+echo "models will be located in ${covfit_stuff_path}/models"
+mkdir "${covfit_stuff_path}/models"
 wget  -O "${covfit_stuff_path}/covfit_cli_20241007.tar.gz" "https://zenodo.org/records/14438178/files/covfit_cli_20241007.tar.gz"
 tar -xf ${covfit_stuff_path}/covfit_cli_20241007.tar.gz -C ${covfit_stuff_path}
 rm ${covfit_stuff_path}/covfit_cli_20241007.tar.gz
-cp -r ${covfit_stuff_path}/CoVFit_CLI/_internal/files/models ${covfit_stuff_path}
+cp -r "${covfit_stuff_path}/CoVFit_CLI/_internal/files/models/*" "${covfit_stuff_path}/models"
 rm -rf ${covfit_stuff_path}/CoVFit_CLI
 
-
+echo "downloading ESM2_coronaviridae"
+wget  -O "${covfit_stuff_path}/models/ESM2_coronaviridae.tar.gz" "https://zenodo.org/records/10910360/files/model_ESM2_coronaviridae.tar.gz"
+tar -xf "${covfit_stuff_path}/models/ESM2_coronaviridae.tar.gz" -C "${covfit_stuff_path}"
+rm "${covfit_stuff_path}/models/ESM2_coronaviridae.tar.gz"

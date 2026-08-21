@@ -8,6 +8,8 @@ This project uses mechanistic interpretability methods to analyze CovFit's behav
 
 [CovFit model (trained to 2024)](https://zenodo.org/records/14438178)
 
+[ESM2_coronaviridae](https://zenodo.org/records/10910360)
+
 ### Create environment using conda
 ```conda create --file config/conda_env/exploratory_env.yml```
 
