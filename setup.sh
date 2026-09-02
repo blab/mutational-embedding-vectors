@@ -1,21 +1,22 @@
 export covfit_stuff_path="./notebooks/covfit_stuff"
 
-echo "installying ipykernel (make sure you're already in exploratory_env conda environment!!)"
-conda install ipykernel
-ipython kernel install --user --name="exploratory_env"
-
-echo "creating figure directory (if not already created)"
-mkdir figures
-
-echo "installing nextstrain"
-curl -fsSL --proto '=https' https://nextstrain.org/cli/installer/linux | bash
-printf '\n%s\n' 'eval "$("/home/ubuntu/.nextstrain/cli-standalone/nextstrain" init-shell bash)"' >> ~/.bashrc
-eval "$("/home/ubuntu/.nextstrain/cli-standalone/nextstrain" init-shell bash)"
-
-echo "installing data"
-wget -O ./notebooks/covfit_stuff/task_id_dict.pt "https://huggingface.co/TheSatoLab-UTokyo/CoVFit/resolve/main/task_id_dict.pt"
-echo "Downloading covid data"
-snakemake --cores all data/pathogen/{"sars_cov_2_spike","sars_cov_2_spike_asia","sars_cov_2_spike_africa","sars_cov_2_spike_europe","sars_cov_2_spike_north_america","sars_cov_2_spike_oceania","sars_cov_2_spike_south_america"}/branches.tsv
+# echo "installying ipykernel (make sure you're already in exploratory_env conda environment!!)"
+# conda install ipykernel
+# ipython kernel install --user --name="exploratory_env"
+# 
+# echo "creating figure directory (if not already created)"
+# mkdir figures
+# 
+# echo "installing nextstrain"
+# curl -fsSL --proto '=https' https://nextstrain.org/cli/installer/linux | bash
+# printf '\n%s\n' 'eval "$("/home/ubuntu/.nextstrain/cli-standalone/nextstrain" init-shell bash)"' >> ~/.bashrc
+# eval "$("/home/ubuntu/.nextstrain/cli-standalone/nextstrain" init-shell bash)"
+# python3 -m pip install nextstrain-augur
+# 
+# echo "installing data"
+# wget -O ./notebooks/covfit_stuff/task_id_dict.pt "https://huggingface.co/TheSatoLab-UTokyo/CoVFit/resolve/main/task_id_dict.pt"
+# echo "Downloading covid data"
+# snakemake --cores all data/pathogen/{"sars_cov_2_spike","sars_cov_2_spike_asia","sars_cov_2_spike_africa","sars_cov_2_spike_europe","sars_cov_2_spike_north_america","sars_cov_2_spike_oceania","sars_cov_2_spike_south_america"}/branches.tsv
 
 echo "installing data for OOD steering"
 mkdir "./data/steering"
