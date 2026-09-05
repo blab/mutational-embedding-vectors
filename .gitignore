@@ -43,6 +43,7 @@ ehthumbs.db
 Thumbs.db
 *~
 *.tar.gz
+*.swp
 
 **/.ipynb_checkpoints
 **/__pycache__
