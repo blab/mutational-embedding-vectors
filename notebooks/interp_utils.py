@@ -29,6 +29,7 @@ from covfit_stuff.esm_regression import load_model_for_inference, get_model_pred
 from peft import LoraConfig, get_peft_model
 from tqdm import tqdm
 import functools
+import json
 
 device = experiment_config.device
 
@@ -335,6 +336,110 @@ def get_model(
     esm_fine_tuned.esm.embeddings.token_dropout = False
 
     return esm_fine_tuned
+
+
+def setup_and_load_model(
+    config, 
+    model_type,
+    device=device
+):
+    """
+    config: (module) what's returned from 'import experiment_config' (in config dir)
+    model_type: (str) either 'covfit' or 'coronaviridae'
+
+    returns:
+    (esm_config, esm_model, (hooked_esm, get_logits_hooked)) 
+    esm_config: config dictionary for esm_model
+    esm_model: (ESM-2) model
+    hooked_esm: (hooked transformer) hooked model corresponding to esm_model
+    get_logits_hooked: (python function) function which you apply to output of hooked_model to get the same logits as esm_model
+    """
+
+    assert model_type == "covfit" or model_type == "coronaviridae", "model_type must be either 'covfit' or 'coronaviridae'"
+
+    # helper function to get covfit model
+    def get_covfit_model():
+        """
+        submodel to get covfit model
+        """
+        # double check
+        assert model_type == "covfit", "this function should only run if model_type == 'covfit'!!"
+        esm_config = EsmConfig.from_pretrained(config.CONF_PATH[model_type])
+        model = EsmForRegression(esm_config, config.N_TARGETS).to(device)
+        lora_config = LoraConfig(
+            task_type="SEQ_CLS",
+            r=8,
+            lora_alpha=16,
+            target_modules=["key", "query", "value","dense"],
+            lora_dropout=0.05,
+            bias="lora_only",
+            modules_to_save=["regressor"]
+        )
+        esm_fine_tuned = get_peft_model(model, lora_config)
+        state_dict = torch.load(config.MODEL_PATH[model_type], map_location=device)
+    
+        wrong_keys = [key for key in state_dict.keys() if key not in esm_fine_tuned.state_dict().keys()]
+        key_list = list(state_dict.keys())
+        for key in key_list:
+            if key in wrong_keys:
+                correct_key = key.rsplit('.',1)[0]+'.base_layer.'+key.rsplit('.',1)[1]
+                state_dict[correct_key] = state_dict.pop(key)
+    
+        del state_dict["base_model.model.esm.embeddings.position_embeddings.base_layer.weight"]
+        
+        print(f"({model_type}) esm_model", esm_fine_tuned.load_state_dict(state_dict))
+        esm_fine_tuned = esm_fine_tuned.merge_and_unload()
+        esm_fine_tuned.eval()
+        esm_fine_tuned.esm.embeddings.token_dropout = False
+    
+        return esm_fine_tuned
+
+    # these are the variables that will be returned
+    esm_config = None
+    esm_model = None
+    hooked_esm = None 
+    get_logits_hooked = None
+
+    # load esm_config + esm_model
+    if model_type == "covfit":
+        esm_model = get_covfit_model().to(device).eval()
+        esm_config = esm_model.config
+        esm_config.token_dropout = False
+        esm_config.model_name = config.MODEL_NAME
+    else: 
+        with open (config.CONF_PATH[model_type], "r") as f:
+            conf_data = json.load(f)
+            esm_config = EsmConfig(**conf_data)
+        esm_config.token_dropout = False
+        esm_config.model_name = config.MODEL_NAME
+    
+        esm_model = EsmForMaskedLM(esm_config).to(device).eval()
+        esm_model_state_dict = torch.load(config.MODEL_PATH[model_type])
+        del esm_model_state_dict["esm.embeddings.position_embeddings.weight"]
+        del esm_model_state_dict["esm.embeddings.position_ids"]
+        print("(coronaviridae) esm_model: ", esm_model.load_state_dict(esm_model_state_dict))
+
+    # load hooked_model
+    hooked_esm_config = get_hooked_esm_config(esm_config, context_len=config.CONTEXT_LEN, use_hook_tokens=True)
+    hooked_esm = HookedTransformer(hooked_esm_config)
+    print("hooked_model: ", hooked_esm.load_state_dict(get_hooked_state_dict(esm_model.state_dict(), hooked_esm_config)))
+    hooked_esm.reset_hooks(including_permanent=True)
+    hooked_esm = add_perma_hooks_to_mask_pad_tokens(hooked_esm, 1)
+    
+    # load get_logit_hooked
+    if model_type == "covfit":
+        def get_logit_hooked(output: Float[Tensor, "batch pos d_model"], tok_id):
+            logits = get_logits_hooked_esm(output[:,0,:], ESM2_lm_head=esm_model.lm_head)[:,tok_id]
+            torch.cuda.empty_cache()
+            return logits
+        print("Note: covfit get_logit_hooked takes 2 inputs -- output and tok_id")
+    else:
+        get_logit_hooked = functools.partial(get_logits_hooked_esm, ESM2_lm_head=esm_model.lm_head)
+        print("Note: coronaviridae get_logit_hooked takes 1 input -- output")
+
+    return esm_config, esm_model, (hooked_esm, get_logit_hooked)
+
+
 
 ##################################################
 #               Helper Functions                 #
