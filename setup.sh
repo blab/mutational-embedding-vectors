@@ -33,9 +33,9 @@ echo "models will be located in ${covfit_stuff_path}/models"
 mkdir "${covfit_stuff_path}/models"
 wget  -O "${covfit_stuff_path}/covfit_cli_20241007.tar.gz" "https://zenodo.org/records/14438178/files/covfit_cli_20241007.tar.gz"
 tar -xf ${covfit_stuff_path}/covfit_cli_20241007.tar.gz -C ${covfit_stuff_path}
-# rm ${covfit_stuff_path}/covfit_cli_20241007.tar.gz
+rm ${covfit_stuff_path}/covfit_cli_20241007.tar.gz
 cp -r "${covfit_stuff_path}/CoVFit_CLI/_internal/files/models/"* "${covfit_stuff_path}/models/"
-# rm -rf ${covfit_stuff_path}/CoVFit_CLI
+rm -rf ${covfit_stuff_path}/CoVFit_CLI
 
 echo "downloading ESM2_coronaviridae"
 wget  -O "${covfit_stuff_path}/models/ESM2_coronaviridae.tar.gz" "https://zenodo.org/records/10910360/files/model_ESM2_coronaviridae.tar.gz"
