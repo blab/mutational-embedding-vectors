@@ -1,4 +1,8 @@
+#!/bin/bash
+export NEXTSTRAIN_DESTINATION="${DESTINATION:-${NEXTSTRAIN_HOME:-$HOME/.nextstrain}/cli-standalone}"
 export covfit_stuff_path="./notebooks/covfit_stuff"
+export shell_file="${HOME}/.bashrc"
+echo "assuming that your current shell uses ${shell_file}"
 
 echo "installying ipykernel (make sure you're already in exploratory_env conda environment!!)"
 conda install ipykernel
@@ -9,8 +13,8 @@ mkdir figures
 
 echo "installing nextstrain"
 curl -fsSL --proto '=https' https://nextstrain.org/cli/installer/linux | bash
-printf '\n%s\n' 'eval "$("/home/ubuntu/.nextstrain/cli-standalone/nextstrain" init-shell bash)"' >> ~/.bashrc
-eval "$("/home/ubuntu/.nextstrain/cli-standalone/nextstrain" init-shell bash)"
+printf '\n%s\n' 'eval "$("'${NEXTSTRAIN_DESTINATION}'/nextstrain" init-shell bash)"' >> ${shell_file}
+eval "$("${NEXTSTRAIN_DESTINATION}/nextstrain" init-shell bash)"
 python3 -m pip install nextstrain-augur
 
 echo "installing data"
