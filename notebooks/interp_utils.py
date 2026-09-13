@@ -341,7 +341,8 @@ def get_model(
 def setup_and_load_model(
     config, 
     model_type,
-    device=device
+    device=device,
+    map_location=device
 ):
     """
     config: (module) what's returned from 'import experiment_config' (in config dir)
@@ -376,7 +377,7 @@ def setup_and_load_model(
             modules_to_save=["regressor"]
         )
         esm_fine_tuned = get_peft_model(model, lora_config)
-        state_dict = torch.load(config.MODEL_PATH[model_type], map_location=device)
+        state_dict = torch.load(config.MODEL_PATH[model_type], map_location=map_location)
     
         wrong_keys = [key for key in state_dict.keys() if key not in esm_fine_tuned.state_dict().keys()]
         key_list = list(state_dict.keys())
@@ -414,7 +415,7 @@ def setup_and_load_model(
         esm_config.model_name = config.MODEL_NAME
     
         esm_model = EsmForMaskedLM(esm_config).to(device).eval()
-        esm_model_state_dict = torch.load(config.MODEL_PATH[model_type])
+        esm_model_state_dict = torch.load(config.MODEL_PATH[model_type], map_location=map_location)
         del esm_model_state_dict["esm.embeddings.position_embeddings.weight"]
         del esm_model_state_dict["esm.embeddings.position_ids"]
         print("(coronaviridae) esm_model: ", esm_model.load_state_dict(esm_model_state_dict))
