@@ -28,4 +28,5 @@ CONF_PATH = {
     "covfit":os.path.join(COVFIT_STUFF_PATH, "CovFit_Config/config.json")
 }
 
+# device = "cuda"
 device = "cuda"
