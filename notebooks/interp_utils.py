@@ -289,53 +289,53 @@ def add_perma_hooks_to_mask_pad_tokens(
 
     return model
 
-def get_model(
-    TOK_DIR = "./covfit_stuff/Tokenizer",
-    CONF_DIR = "./covfit_stuff/Config",
-    TASK_IDS_FILE = "./covfit_stuff/task_id_dict.pt",
-    FOLD_ID = 0,
-    N_TARGETS = 1565,
-    MODEL_PATH = f"./covfit_stuff/models/covfit_model_20241007_0.ckpt",
-    device=device
-):
-    esm_config = EsmConfig.from_pretrained(CONF_DIR)
-    model = EsmForRegression(esm_config, N_TARGETS).to(device)
-
-    lora_config = LoraConfig(
-        task_type="SEQ_CLS",
-        r=8,
-        lora_alpha=16,
-        target_modules=["key", "query", "value","dense"],
-        lora_dropout=0.05,
-        bias="lora_only",
-        modules_to_save=["regressor"]
-    )
-    esm_fine_tuned = get_peft_model(model, lora_config)
-    state_dict = torch.load(MODEL_PATH, map_location=device)
-    
-    # keys_to_remove = []
-    # for key in state_dict.keys():
-    #     if 'contact_head' in key:
-    #         keys_to_remove.append(key)
-    
-    # for key in keys_to_remove:
-    #     del state_dict[key]
-
-    wrong_keys = [key for key in state_dict.keys() if key not in esm_fine_tuned.state_dict().keys()]
-    key_list = list(state_dict.keys())
-    for key in key_list:
-        if key in wrong_keys:
-            correct_key = key.rsplit('.',1)[0]+'.base_layer.'+key.rsplit('.',1)[1]
-            state_dict[correct_key] = state_dict.pop(key)
-
-    del state_dict["base_model.model.esm.embeddings.position_embeddings.base_layer.weight"]
-    
-    esm_fine_tuned.load_state_dict(state_dict)
-    esm_fine_tuned = esm_fine_tuned.merge_and_unload()
-    esm_fine_tuned.eval()
-    esm_fine_tuned.esm.embeddings.token_dropout = False
-
-    return esm_fine_tuned
+# def get_model(
+#     TOK_DIR = "./covfit_stuff/Tokenizer",
+#     CONF_DIR = "./covfit_stuff/Config",
+#     TASK_IDS_FILE = "./covfit_stuff/task_id_dict.pt",
+#     FOLD_ID = 0,
+#     N_TARGETS = 1565,
+#     MODEL_PATH = f"./covfit_stuff/models/covfit_model_20241007_0.ckpt",
+#     device=device
+# ):
+#     esm_config = EsmConfig.from_pretrained(CONF_DIR)
+#     model = EsmForRegression(esm_config, N_TARGETS).to(device)
+# 
+#     lora_config = LoraConfig(
+#         task_type="SEQ_CLS",
+#         r=8,
+#         lora_alpha=16,
+#         target_modules=["key", "query", "value","dense"],
+#         lora_dropout=0.05,
+#         bias="lora_only",
+#         modules_to_save=["regressor"]
+#     )
+#     esm_fine_tuned = get_peft_model(model, lora_config)
+#     state_dict = torch.load(MODEL_PATH, map_location=device)
+#     
+#     # keys_to_remove = []
+#     # for key in state_dict.keys():
+#     #     if 'contact_head' in key:
+#     #         keys_to_remove.append(key)
+#     
+#     # for key in keys_to_remove:
+#     #     del state_dict[key]
+# 
+#     wrong_keys = [key for key in state_dict.keys() if key not in esm_fine_tuned.state_dict().keys()]
+#     key_list = list(state_dict.keys())
+#     for key in key_list:
+#         if key in wrong_keys:
+#             correct_key = key.rsplit('.',1)[0]+'.base_layer.'+key.rsplit('.',1)[1]
+#             state_dict[correct_key] = state_dict.pop(key)
+# 
+#     del state_dict["base_model.model.esm.embeddings.position_embeddings.base_layer.weight"]
+#     
+#     esm_fine_tuned.load_state_dict(state_dict)
+#     esm_fine_tuned = esm_fine_tuned.merge_and_unload()
+#     esm_fine_tuned.eval()
+#     esm_fine_tuned.esm.embeddings.token_dropout = False
+# 
+#     return esm_fine_tuned
 
 
 def setup_and_load_model(
@@ -430,7 +430,7 @@ def setup_and_load_model(
     # load get_logit_hooked
     if model_type == "covfit":
         def get_logit_hooked(output: Float[Tensor, "batch pos d_model"], tok_id):
-            logits = get_logits_hooked_esm(output[:,0,:], ESM2_lm_head=esm_model.lm_head)[:,tok_id]
+            logits = get_logits_hooked_esm(output[:,0,:], ESM2_lm_head=esm_model.regressor)[:,tok_id]
             torch.cuda.empty_cache()
             return logits
         print("Note: covfit get_logit_hooked takes 2 inputs -- output and tok_id")
@@ -443,8 +443,11 @@ def setup_and_load_model(
 
 
 ##################################################
-#               Helper Functions                 #
+#       Path-Patching helper Functions           #
 ##################################################
+################################
+#       Activation patching    #
+################################
 # Activation patching
 def patch_head_vector(
     clean_head_vector: Float[Tensor, "batch pos head_index d_head"],
@@ -548,6 +551,9 @@ def get_act_patch_mlp_all_pos(
     
     return results
 
+################################
+#       Absolute patching      #
+################################
 def abs_path_patch_head_input(
     orig_head_vector: Float[Tensor, "batch pos n_head d_head"],
     hook: HookPoint,
@@ -601,9 +607,11 @@ def patch_head_input(
     return orig_activation
 
     
-##################################################
-#               Interp Functions                 #
-##################################################
+#################################################################
+#           Path-Patching Functions                             #
+#           Adapted from Streamlit course                       #
+#   https://arena-chapter1-transformer-interp.streamlit.app/    #
+#################################################################
 # direct to resid stream
 def path_patch_head_absolute_direct(
     model,
@@ -613,6 +621,16 @@ def path_patch_head_absolute_direct(
     new_cache,
     logit_id: int,
 ) -> Float[Tensor, "num_layer num_head"]:
+    """
+    patch to Attn. to measure causal impact on final fitness
+
+    model: (HookedTransformer)
+    orig_dataset: (Float[Tensor, "batch pos"]) The original sequences that will be passed through the model
+    patching_metric: (Callable) function that measures how much a perturbed component affects the final output
+    get_logit_hooked: (Callable) function that produces final output from model (since CovFit has a aux NN)
+    new_cache: cached component outputs on counter-factual sequences to be patched into the model
+    logit_id: (int) row-index of predicted fitness logit
+    """
 
     num_layers = model.cfg.n_layers
     num_heads = model.cfg.n_heads
@@ -660,6 +678,16 @@ def path_patch_mlp_absolute_direct(
     new_cache,
     logit_id: int,
 ) -> Float[Tensor, "num_layer num_head"]:
+    """
+    (Absolute) patch to MLP to measure causal impact on final fitness
+
+    model: (HookedTransformer)
+    orig_dataset: (Float[Tensor, "batch pos"]) The original sequences that will be passed through the model
+    patching_metric: (Callable) function that measures how much a perturbed component affects the final output
+    get_logit_hooked: (Callable) function that produces final output from model (since CovFit has a aux NN)
+    new_cache: cached component outputs on counter-factual sequences to be patched into the model
+    logit_id: (int) row-index of predicted fitness logit
+    """
 
     num_layers = model.cfg.n_layers
     path_patch_results = torch.zeros(num_layers).to(device)
@@ -699,6 +727,19 @@ def abs_path_patch_receiver_heads(
     orig_cache: ActivationCache, # cached attn. z
     logit_id: int
 ) -> Float[Tensor, "num_layer num_head"]:
+    """
+    (Absolute) patch to Attn. to measure causal impact on downstream Attn. heads (receiver_heads)
+
+    model: (HookedTransformer)
+    receiver_heads: (list[tuple[int, int]]) a list of tuples of the form (layer, head) for downstream attn. heads to measure
+    receiver_input: (str) one of 'q', 'k', 'v' -- what vector of the downstream receiver_heads will be modified
+    orig_dataset: (Float[Tensor, "batch pos"]) The original sequences that will be passed through the model
+    patching_metric: (Callable) function that measures how much a perturbed component affects the final output
+    get_logit_hooked: (Callable) function that produces final output from model (since CovFit has a aux NN)
+    new_cache: cached component outputs on counter-factual sequences to be patched into the model
+    orig_cache: cached component outputs on original sequences
+    logit_id: (int) row-index of predicted fitness logit
+    """
 
     num_layers = model.cfg.n_layers
     num_heads = model.cfg.n_heads
@@ -770,6 +811,19 @@ def abs_path_patch_mlp_to_receiver_heads(
     orig_cache: ActivationCache, # cached mlp
     logit_id: int
 ) -> Float[Tensor, "num_layer num_head"]:
+    """
+    (Absolute) patch to MLP to measure causal impact on downstream Attn. heads (receiver_heads)
+
+    model: (HookedTransformer)
+    receiver_heads: (list[tuple[int, int]]) a list of tuples of the form (layer, head) for downstream attn. heads to measure
+    receiver_input: (str) one of 'q', 'k', 'v' -- what vector of the downstream receiver_heads will be modified
+    orig_dataset: (Float[Tensor, "batch pos"]) The original sequences that will be passed through the model
+    patching_metric: (Callable) function that measures how much a perturbed component affects the final output
+    get_logit_hooked: (Callable) function that produces final output from model (since CovFit has a aux NN)
+    new_cache: cached component outputs on counter-factual sequences to be patched into the model
+    orig_cache: cached component outputs on original sequences
+    logit_id: (int) row-index of predicted fitness logit
+    """
 
     num_layers = model.cfg.n_layers
     num_heads = model.cfg.n_heads
@@ -834,6 +888,18 @@ def abs_path_patch_to_mlp(
     orig_cache: ActivationCache, # cached attn. z
     logit_id: int
 ) -> Float[Tensor, "num_layer num_head"]:
+    """
+    (Absolute) patch to attn. heads to measure causal impact on downstream MLPs (receiver_mlps)
+
+    model: (HookedTransformer)
+    receiver_mlps: (list[int]) a list of elements corresponding to layers for downstream MLPs to measure
+    orig_dataset: (Float[Tensor, "batch pos"]) The original sequences that will be passed through the model
+    patching_metric: (Callable) function that measures how much a perturbed component affects the final output
+    get_logit_hooked: (Callable) function that produces final output from model (since CovFit has a aux NN)
+    new_cache: cached component outputs on counter-factual sequences to be patched into the model
+    orig_cache: cached component outputs on original sequences
+    logit_id: (int) row-index of predicted fitness logit
+    """
 
     num_layers = model.cfg.n_layers
     num_heads = model.cfg.n_heads
@@ -982,6 +1048,18 @@ def abs_direc_path_patch_mlp_to_mlp(
     orig_cache: ActivationCache, # cached attn. z
     logit_id: int
 ) -> Float[Tensor, "num_layer num_head"]:
+    """
+    (Absolute) patch to MLP heads to measure causal impact on downstream MLPs (receiver_mlps)
+
+    model: (HookedTransformer)
+    receiver_mlps: (list[int]) a list of elements corresponding to layers for downstream MLPs to measure
+    orig_dataset: (Float[Tensor, "batch pos"]) The original sequences that will be passed through the model
+    patching_metric: (Callable) function that measures how much a perturbed component affects the final output
+    get_logit_hooked: (Callable) function that produces final output from model (since CovFit has a aux NN)
+    new_cache: cached component outputs on counter-factual sequences to be patched into the model
+    orig_cache: cached component outputs on original sequences
+    logit_id: (int) row-index of predicted fitness logit
+    """
 
     num_layers = model.cfg.n_layers
     num_heads = model.cfg.n_heads
