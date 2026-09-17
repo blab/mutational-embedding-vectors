@@ -9,11 +9,11 @@ import torch
 from Bio import SeqIO
 from typing import List, Union, Optional, Callable, Sequence
 from transformers import (
-    EsmForMaskedLM, 
+    EsmForMaskedLM,
     EsmConfig,
-    PretrainedConfig, 
-    EsmTokenizer, 
-    DataCollatorForLanguageModeling, 
+    PretrainedConfig,
+    EsmTokenizer,
+    DataCollatorForLanguageModeling,
     Trainer
 )
 
@@ -54,6 +54,8 @@ from plotly_utils import (
 )
 
 import circuitsvis as cv
+from IPython.display import display, HTML
+from IPython import get_ipython
 
 sys.path.append("../config")
 import experiment_config
@@ -82,43 +84,23 @@ from covfit_stuff.config import Config, ModelConfig
 from covfit_stuff.esm_regression import load_model_for_inference, get_model_predictions, EsmForRegression
 import tempfile
 
-pio.get_chrome()
-
-TOK_DIR = "./covfit_stuff/Tokenizer"
-CONF_DIR = "./covfit_stuff/Config"
-TASK_IDS_FILE = "./covfit_stuff/task_id_dict.pt"
-FOLD_ID = 0
-N_TARGETS = 1565
-MODEL_PATH = f"./covfit_stuff/models/covfit_model_20241007_{FOLD_ID}.ckpt"
-
-# MODEL_PATH = "TheSatoLab-UTokyo/CoVFit"
-# FOLD_IDS_TO_USE = [0]
-# TARGET_FOLD_ID = 0
-# OUTPUT_PREFIX = "inference_results"
-
-model_name = "facebook/esm2_t33_650M_UR50D"
-device = experiment_config.device
-CONTEXT_LEN = 1024
 torch.autograd.grad_mode.set_grad_enabled(False)
 torch.set_float32_matmul_precision("medium")
+# small thing to turn off annoying wand questions
+os.environ["WANDB_DISABLED"] = "true"
+CONTEXT_LEN = experiment_config.CONTEXT_LEN
+device = experiment_config.device
+print(f"device = {device}")
 
-esm_fine_tuned = interp_utils.get_model()
-
-esm_fine_tuned = esm_fine_tuned.to(device)
-esm_fine_tuned = esm_fine_tuned.eval()
-
-esm_config = esm_fine_tuned.config
-esm_config.token_dropout = False
-esm_config.model_name = model_name
-REPO_ID = esm_config.model_name
-original_task_id_infos = torch.load("./covfit_stuff/task_id_dict.pt", map_location=device)
+esm_config, _esm_covfit, (hooked_esm_covfit, get_logit_covfit) = interp_utils.setup_and_load_model(experiment_config, "covfit")
+del _esm_covfit
+torch.cuda.empty_cache()
 
 tokenizer_config = {}
-special_tokens_map_file = "./covfit_stuff/Tokenizer/special_tokens_map.json"
-tokenizer_config["vocab_file"] = "./covfit_stuff/Tokenizer/vocab.txt"
-tokenizer_config["model_max_length"] = CONTEXT_LEN
+tokenizer_config["vocab_file"] = experiment_config.VOCAB_FILE
+tokenizer_config["model_max_length"] = experiment_config.CONTEXT_LEN
 
-with open("./covfit_stuff/Tokenizer/special_tokens_map.json", "r") as f:
+with open(experiment_config.SPECIAL_TOK_MAP, "r") as f:
     tokenizer_config = {**tokenizer_config, **(json.load(f))}
 
 with open(tokenizer_config["vocab_file"], "r") as f:
@@ -127,18 +109,12 @@ with open(tokenizer_config["vocab_file"], "r") as f:
     aa_to_toks_map_rev = {aa_to_toks_map[k]:k for k in aa_to_toks_map.keys()}
 
 tokenizer = EsmTokenizer(**tokenizer_config)
-
-hooked_esm_config = interp_utils.get_hooked_esm_config(esm_config, context_len=CONTEXT_LEN, use_hook_tokens=True)
-hooked_esm = HookedTransformer(hooked_esm_config)
-print(hooked_esm.load_state_dict(interp_utils.get_hooked_state_dict(esm_fine_tuned.state_dict(), hooked_esm_config)))
-
-# clean up memory
-torch.cuda.empty_cache()
+original_task_id_infos = torch.load(experiment_config.TASK_IDS_FILE, map_location=device)
 
 def tokenizer_for_map(seq, seq_key="input_ids", tokenizer=tokenizer): #Tokenizer and params including special_tokens_mask required for MLM
     return tokenizer(
         seq[seq_key],
-        return_tensors="pt", 
+        return_tensors="pt",
         return_special_tokens_mask=True,
         truncation=True,
         padding="max_length",
@@ -153,7 +129,6 @@ data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer,return_tenso
 
 MAX_LEN=1024
 pathogen_suffixes = ["africa", "asia", "europe", "north_america", "oceania", "south_america"]
-d_out_vocab = esm_fine_tuned.regressor[3].weight.size(0)
 pathogen_name = "sars_cov_2_spike"
 protein_coords = config["pathogens"][f"{pathogen_name}_africa"]["protein_coords"]
 
@@ -187,15 +162,15 @@ for suff in pathogen_suffixes:
     keep_idx = [i for i,x in enumerate(sequences) if len(x.replace("-","")) > (CONTEXT_LEN // 5) * 4]
     sequences = [sequences[i] for i in keep_idx]
     sequence_names = [sequence_names[i] for i in keep_idx]
-    
-    uniq_seqs_suff, unique_inv_idx  = np.unique(sequences, return_inverse=True) # For the purpose of eval, I only care about unique sequences 
+
+    uniq_seqs_suff, unique_inv_idx  = np.unique(sequences, return_inverse=True) # For the purpose of eval, I only care about unique sequences
 
     all_seqs.extend(sequences)
     seq_names.extend(sequence_names)
     seq_idxs.extend(unique_inv_idx + len(all_uniq_seqs))
     all_uniq_seqs.extend(uniq_seqs_suff)
 
-all_uniq_seqs, unique_inv_idx  = np.unique(all_uniq_seqs, return_inverse=True) # For the purpose of eval, I only care about unique sequences 
+all_uniq_seqs, unique_inv_idx  = np.unique(all_uniq_seqs, return_inverse=True) # For the purpose of eval, I only care about unique sequences
 seq_idxs = [unique_inv_idx[idx] for idx in seq_idxs]
 all_uniq_seqs = list(all_uniq_seqs)
 
@@ -208,52 +183,22 @@ print(pathogen_name)
 print(f"Number unique sequences: {len(all_uniq_seqs)}")
 print(tok_seqs.shape)
 
-hooked_esm.reset_hooks(including_permanent=True)
-hooked_esm = interp_utils.add_perma_hooks_to_mask_pad_tokens(hooked_esm, 1)
-
-component_name_map = dict()
-for l in range(esm_config.num_hidden_layers + 1):
-    if l < esm_config.num_hidden_layers:
-        component_name_map[l] = f"blocks.{l}.hook_resid_pre"
-    
-    # final layer
-    elif l == esm_config.num_hidden_layers:
-        component_name_map[l] = f"unembed.hook_in"
-
-def get_logit_hooked(output: Float[Tensor, "batch pos d_model"], tok_id):
-    logits = interp_utils.get_logits_hooked_esm(output[:,0,:], esm_fine_tuned.regressor)[:,tok_id]
-    torch.cuda.empty_cache()
-    return logits
-
-def get_rev_names(id_seq):
-    """
-    Given seq x in all_uniq_seqs, get the corresponding name(s) of sequences that have the same spike protein
-    """
-    if type(id_seq) == int:
-        id_seq = [id_seq]
-
-    rev_name_dict = {}
-    for id_s in id_seq:
-        name_idx = np.argwhere(np.array(seq_idxs) == id_seq)[:,0]
-        rev_name_dict[id_s] = [seq_names[x] for x in name_idx]
-    return rev_name_dict
-
-logit_id = original_task_id_infos["fitness_USA"]
-
 relevant_mutations = [
     ("G339H", lambda x: x <= "21M"),
     ("R346T", lambda x: "XBB" in x),
-    ("K417N", lambda x: True), 
+    ("K417N", lambda x: True),
     ("V445P", lambda x: x <= "23I"),
     ("L455F", lambda x: True),
     ("F456L", lambda x: x.endswith("(XBB.1.5)")),
     ("E484A", lambda x: x <= "21M"),
-    ("S486P", lambda x: "XBB" in x),
+    ("S486P", lambda x: "XBB" in x or "JN" in x or "21" in x),
     ("Q493R", lambda x: x <= "21M"),
     ("P681H", lambda x: x <= "23I"),
 ]
 
-wt_mut_seq_pairs = []
+wt_mut_seq_pairs = dict() # key=mutation, contains the clipped-to-80 pairs of (wt, mut, <mask>) seqs
+wt_seq_all_pairs = dict() # key=mutation, contains all pairs of (wt, mut, <mask>) seqsnp.random.seed(0)
+
 np.random.seed(0)
 for mut, seq_selector in relevant_mutations:
     wt_resid = mut[0]
@@ -263,15 +208,23 @@ for mut, seq_selector in relevant_mutations:
     uniq_seqs = np.unique([all_uniq_seqs[seq_idxs[i]] for i,n in enumerate(seq_names) if seq_selector(name_to_clade_dict[n])])
     rand_seqs = np.random.permutation(uniq_seqs)
 
-    seq_orig_idx = [x for x in rand_seqs if x[site-1] == wt_resid][:80]
-    seq_new_idx = [x[:site-1] + mut_resid + x[site:] for x in seq_orig_idx]
+    all_seq_orig_idx = [x for x in rand_seqs if x[site-1] == wt_resid]
+    all_seq_new_idx = [x[:site-1] + mut_resid + x[site:] for x in all_seq_orig_idx]
+    all_seq_mask_idx = [x[:site-1] + "<mask>" + x[site:] for x in all_seq_orig_idx]
 
-    print(f"Mutation = {wt_resid} {site} {mut_resid}; {seq_orig_idx[10][site-1]}, {seq_new_idx[10][site-1]}; {len(seq_orig_idx)} total seqs")
+    print(f"Mutation = {wt_resid} {site} {mut_resid}; {all_seq_orig_idx[10][site-1]}, {all_seq_new_idx[10][site-1]}; {len(all_seq_orig_idx)} total seqs (clipped to 80)")
 
-    seq_orig_toks = tokenizer(seq_orig_idx, return_tensors="pt", return_special_tokens_mask=True, truncation=True, padding="max_length", max_length=MAX_LEN).input_ids.to(device)
-    seq_new_toks = tokenizer(seq_new_idx, return_tensors="pt", return_special_tokens_mask=True, truncation=True, padding="max_length", max_length=MAX_LEN).input_ids.to(device)
+    all_seq_orig_toks = tokenizer(all_seq_orig_idx, return_tensors="pt", return_special_tokens_mask=True, truncation=True, padding="max_length", max_length=MAX_LEN).input_ids.to(device)
+    all_seq_new_toks = tokenizer(all_seq_new_idx, return_tensors="pt", return_special_tokens_mask=True, truncation=True, padding="max_length", max_length=MAX_LEN).input_ids.to(device)
+    all_seq_mask_toks = tokenizer(all_seq_mask_idx, return_tensors="pt", return_special_tokens_mask=True, truncation=True, padding="max_length", max_length=MAX_LEN).input_ids.to(device)
 
-    wt_mut_seq_pairs.append((mut, seq_orig_toks, seq_new_toks))
+    wt_mut_seq_pairs[mut] = (all_seq_orig_toks[:80], all_seq_new_toks[:80], all_seq_mask_toks[:80])
+    wt_seq_all_pairs[mut] = (all_seq_orig_toks, all_seq_new_toks, all_seq_mask_toks)
+
+    sanity_check = (wt_mut_seq_pairs[mut][0] !=  wt_mut_seq_pairs[mut][1]).sum(dim=0)
+    sanity_check_mask = (wt_mut_seq_pairs[mut][0] !=  wt_mut_seq_pairs[mut][2]).sum(dim=0)
+    print(torch.arange(all_seq_orig_toks.shape[-1])[sanity_check.to(bool).cpu()].item(), sanity_check[site].item(), "\n")
+    print(torch.arange(all_seq_orig_toks.shape[-1])[sanity_check_mask.to(bool).cpu()].item(), sanity_check_mask[site].item(), "\n")
 
 # path patching metric 
 def path_patching_metric(
@@ -286,36 +239,93 @@ def path_patching_metric(
 
     return ((logits - clean_logit_mean) / (clean_logit_mean - corrupted_logit_mean)).mean().item()
 
-for mut, seq_orig_toks, seq_new_toks in wt_mut_seq_pairs:
-    print(mut)
+# activation patching for attn. heads
+print("beginning activation patching (attn. heads!)")
+for mut, _ in relevant_mutations:
+    seq_orig_toks, seq_new_toks, _ = wt_mut_seq_pairs[mut]
+    hooked_esm_covfit.reset_hooks(including_permanent=False)
 
-    hooked_esm.reset_hooks(including_permanent=False)
     corr_toks = seq_orig_toks
     clean_toks = seq_new_toks
-    corrupted_logit_mean = get_logit_hooked(hooked_esm(corr_toks), logit_id).mean().item()
-    clean_logit_mean = get_logit_hooked(hooked_esm(clean_toks), logit_id).mean().item()
+
+    corrupted_logit_mean = get_logit_covfit(hooked_esm_covfit(corr_toks), logit_id).mean().item()
+    clean_logit_mean = get_logit_covfit(hooked_esm_covfit(clean_toks), logit_id).mean().item()
     print(corrupted_logit_mean - clean_logit_mean)
     torch.cuda.empty_cache()
-    
+
     patched_head_output_comps = []
     for receiver_input in ["k", "q", "v", "z", "pattern"]:
         if receiver_input == "pattern":
-            _, corrupted_cache = hooked_esm.run_with_cache(corr_toks, names_filter = lambda x: ("hook_q" in x) or ("hook_k" in x))
+            _, corrupted_cache = hooked_esm_covfit.run_with_cache(corr_toks, names_filter = lambda x: ("hook_q" in x) or ("hook_k" in x))
             del _
             torch.cuda.empty_cache()
         else:
-            _, corrupted_cache = hooked_esm.run_with_cache(corr_toks, names_filter = lambda x: f"hook_{receiver_input}" in x)
+            _, corrupted_cache = hooked_esm_covfit.run_with_cache(corr_toks, names_filter = lambda x: f"hook_{receiver_input}" in x)
             del _
             torch.cuda.empty_cache()
     
         patched_head_output = interp_utils.get_act_patch_attn_head_out_all_pos(
-            hooked_esm, 
+            hooked_esm_covfit, 
             logit_id=logit_id, 
             clean_tokens=clean_toks, 
             corrupted_cache=corrupted_cache,
             receiver_input=receiver_input,
             patching_metric=functools.partial(path_patching_metric, corrupted_logit_mean=corrupted_logit_mean, clean_logit_mean=clean_logit_mean),
-            get_logit_hooked=get_logit_hooked
+            get_logit_hooked=get_logit_covfit
+        )
+        
+        patched_head_output_comps.append(patched_head_output)
+        del corrupted_cache
+        torch.cuda.empty_cache()
+
+    patched_head_output_tensor = torch.stack(patched_head_output_comps, dim=0)
+
+    fig = imshow(
+        patched_head_output_tensor,
+        labels={"x": "Head", "y": "Layer", "color": "Change in fitness"},
+        title="Activation patching change in fitness (low fitness into high fitness)",
+        width=1400,
+        height=600,
+        facet_labels=["Key", "Query", "Value", "Z", "pattern"],
+        facet_col=0,
+        return_fig=True
+        # range_color=(-0.8,0.8)
+    )
+    fig.write_image(f"../figures/{mut}_activation_patch.png", width=1400, height=600, scale=2)
+
+# 
+print("beginning activation patching (MLP)")
+for mut, _ in relevant_mutations:
+    seq_orig_toks, seq_new_toks, _ = wt_mut_seq_pairs[mut]
+    hooked_esm_covfit.reset_hooks(including_permanent=False)
+
+    corr_toks = seq_orig_toks
+    clean_toks = seq_new_toks
+
+    corrupted_logit_mean = get_logit_covfit(hooked_esm_covfit(corr_toks), logit_id).mean().item()
+    clean_logit_mean = get_logit_covfit(hooked_esm_covfit(clean_toks), logit_id).mean().item()
+    print(corrupted_logit_mean - clean_logit_mean)
+    torch.cuda.empty_cache()
+
+    patched_head_output_comps = []
+    for receiver_input in ["k", "q", "v", "z", "pattern"]:
+        if receiver_input == "pattern":
+            _, corrupted_cache = hooked_esm_covfit.run_with_cache(corr_toks, names_filter = lambda x: ("hook_q" in x) or ("hook_k" in x))
+            del _
+            torch.cuda.empty_cache()
+        else:
+            _, corrupted_cache = hooked_esm_covfit.run_with_cache(corr_toks, names_filter = lambda x: f"hook_{receiver_input}" in x)
+            del _
+            torch.cuda.empty_cache()
+    
+        patched_head_output = interp_utils.get_act_patch_attn_head_out_all_pos(
+            hooked_esm_covfit, 
+            logit_id=logit_id, 
+            clean_tokens=clean_toks, 
+            corrupted_cache=corrupted_cache,
+            receiver_input=receiver_input,
+            patching_metric=functools.partial(path_patching_metric, corrupted_logit_mean=corrupted_logit_mean, clean_logit_mean=clean_logit_mean),
+            get_logit_hooked=get_logit_covfit
         )
         
         patched_head_output_comps.append(patched_head_output)
